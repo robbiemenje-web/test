@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>@bobbykarate • Trad Prompt Generator</title>
+<style>
+  :root{--bg:#fdf7ee;--ink:#1a0f0a;--line:#000;--red:#d82c2c;--card:#fffaf2}
+  *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  .wrap{max-width:960px;margin:24px auto;padding:20px;border:3px solid var(--line);border-radius:14px;box-shadow:6px 6px 0 var(--red);background:var(--bg)}
+  header{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  h1{margin:0;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:.5px}
+  .tag{background:#000;color:#fff;border-radius:999px;padding:6px 10px;font-weight:800}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+  button,select{border:2px solid var(--line);background:#000;color:#fff;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}
+  button:hover{background:var(--red)}
+  select{background:#fff;color:var(--ink)}
+  .grid{display:grid;grid-template-columns:1fr;gap:12px}
+  @media(min-width:820px){.grid{grid-template-columns:1fr 1fr}}
+  .card{border:2px solid var(--line);border-radius:12px;background:var(--card);padding:14px;box-shadow:4px 4px 0 var(--red)}
+  .title{margin:0 0 6px;font-weight:900;text-transform:capitalize}
+  .meta{color:#444;font-size:.92rem}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  footer{margin-top:16px;color:#6a5146;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <span class="tag">@bobbykarate</span>
+      <h1>Traditional Tattoo Prompt Generator</h1>
+    </header>
+
+    <div class="controls">
+      <select id="mode">
+        <option value="single">Single Classic Prompt</option>
+        <option value="flash">Themed Flash Sheet (5)</option>
+      </select>
+      <select id="theme" title="Pick a theme (used only in Flash mode)">
+        <option value="random">Random Theme</option>
+      </select>
+      <button id="go">Generate</button>
+      <button id="copy">Copy All</button>
+      <button id="clear">Clear</button>
+    </div>
+
+    <div id="board" class="grid" aria-live="polite"></div>
+
+    <footer>
+      <span>Classic American Traditional, two extras, placement + size.</span>
+      <span>Made by <strong>@bobbykarate</strong></span>
+    </footer>
+  </div>
+
+<script>
+/* ========== DATA ========== */
+const SUBJECTS_CLASSIC = [
+  "panther head","snake & dagger","sacred heart","lady head","crying woman","eagle clutching a snake",
+  "ship in a bottle","skull & rose","mermaid","grim reaper","tiger crawling","butterfly","anchor",
+  "wolf head","hannya mask","black cat","weeping eye","rose and dagger","devil head","horseshoe & dice",
+  "ship wheel","skull with candle","lighthouse","owl","hand holding a flower"
+];
+
+const EXTRAS_CORE = [
+  "surrounded by flames","with lightning bolts","framed by peonies","in front of a rising sun",
+  "pierced by a dagger","wrapped in barbed wire","with a spiderweb backdrop","emerging from smoke",
+  "with a banner that reads 'Stay True'","entwined with a snake","holding a traditional lantern",
+  "with waves and cherry blossoms","with checkered flags behind it","with stars and sparkles",
+  "on a bed of roses","with palm leaves","in a stormy cloud background","with dice and cards",
+  "with laurel wreath","with moon and two stars"
+];
+
+const PLACEMENTS = ["forearm","upper arm","calf","shin","thigh","chest","ribs","outer forearm","back of hand","side of neck","upper back","stomach"];
+const SIZES = ["palm-size","hand-size","postcard-size banger","quarter-sleeve panel","half-sheet piece"];
+
+/* Niche, specific themes — each with its own subject/extra flavor */
+const THEMES = {
+  "nautical nightmares": {
+    subjects: ["sinking ship","octopus wrapping an anchor","sailor skeleton","stormy lighthouse","compass rose","mermaid holding skull","kraken tentacle clutching dagger"],
+    extras: ["with crashing waves","in a thunderstorm","with broken masts","surrounded by lightning bolts","framed by rope","with gulls and clouds","with rising sun behind the sea"]
+  },
+  "death & divinity": {
+    subjects: ["grim reaper","weeping angel statue","burning cross","skeleton saint","thorned sacred heart","hourglass with skulls","saintly skeleton"],
+    extras: ["with glowing halo","in clouds of smoke","surrounded by candles","with roses and chains","with a dagger through the chest","with celestial rays","with draping cloth and thorns"]
+  },
+  "florida folklore": {
+    subjects: ["swamp witch","gator head","mangrove ghost","mosquito with halo","palmetto devil","flamingo skeleton","old fisherman spirit"],
+    extras: ["with Spanish moss","with swamp fog","in front of sunset gradient","surrounded by cattails","with seashell halo","in a mangrove tunnel","with a small yellowfin skiff"]
+  },
+  "garden of decay": {
+    subjects: ["rose growing from skull","butterfly on bone","snake curling through petals","wilted tulip","moth and candle","frog skeleton","hand holding dead flower"],
+    extras: ["with morning dew","with cobwebs","with dripping wax","in front of crescent moon","framed by vines","surrounded by bees and thorns"]
+  },
+  "western outlaw": {
+    subjects: ["cow skull","six shooter","saloon girl","bandit mask","snake and boot","cowboy skeleton","wanted poster portrait"],
+    extras: ["with desert sunset","with tumbleweeds","with barbed wire border","with sheriff star","with cracked earth","in front of ghost town"]
+  },
+  "occult visions": {
+    subjects: ["third eye","crystal ball","witch hand","black cat familiar","tarot card spread","burning candle skull","sigil orb"],
+    extras: ["surrounded by smoke","in a star circle","with snakes and moons","with ritual dagger","with dripping wax","with tarot symbols"]
+  },
+  "infernal engines": {
+    subjects: ["devil head","engine piston skull","hot rod cross","flaming wheel","spark plug dagger","screaming exhaust pipe"],
+    extras: ["surrounded by flames","with checkered flag","with smoke plumes","with chrome reflections","with skull shifter knob","in front of sunset strip"]
+  },
+  "samurai spirits": {
+    subjects: ["oni mask","koi fish","cherry blossom skull","samurai helmet","crane bird","rising sun wave","katana and skull"],
+    extras: ["with smoke and wind bars","with falling petals","in front of red sun","framed by clouds","with maple leaves","with dragon scales"]
+  },
+  "lost carnival": {
+    subjects: ["sad clown","carousel horse","fortune teller head","snake charmer","broken puppet","tent entrance","bearded lady portrait"],
+    extras: ["with circus lights","in tattered drapery","with faded banner","with roses and confetti","in stormy night sky","with snakes coiling"]
+  }
+};
+
+/* ========== HELPERS ========== */
+const rnd = n => Math.floor((crypto?.getRandomValues?.(new Uint32Array(1))[0] ?? Math.random()*2**32)/2**32 * n);
+const pick = arr => arr[rnd(arr.length)];
+const twoDistinct = arr => { const a = pick(arr); let b; do{ b = pick(arr); } while(b===a); return [a,b]; };
+
+/* ========== UI ========== */
+const board = document.getElementById('board');
+const modeSel = document.getElementById('mode');
+const themeSel = document.getElementById('theme');
+
+(function init(){
+  // populate theme dropdown
+  Object.keys(THEMES).forEach(name=>{
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    themeSel.appendChild(opt);
+  });
+})();
+
+document.getElementById('go').onclick = ()=>{
+  const mode = modeSel.value;
+  const theme = themeSel.value;
+  if(mode === 'single'){
+    addSingle();
+  } else {
+    addFlash(theme);
+  }
+};
+
+document.getElementById('clear').onclick = ()=> board.innerHTML = '';
+
+document.getElementById('copy').onclick = async ()=>{
+  const lines = [...board.querySelectorAll('.card p.prompt')].map(p=>p.textContent).join('\n');
+  if(!lines) return;
+  await navigator.clipboard.writeText(lines);
+  toast('Copied ✓');
+};
+
+/* ========== GENERATORS ========== */
+function addSingle(){
+  const subject = pick(SUBJECTS_CLASSIC);
+  const [e1,e2] = twoDistinct(EXTRAS_CORE);
+  const placement = pick(PLACEMENTS);
+  const size = pick(SIZES);
+  const text = `Client wants a ${subject} ${e1} and ${e2}, ${size}, placed on the ${placement}.`;
+  renderCard({title: subject, text, meta:`Placement: ${placement} • Size: ${size}`});
+}
+
+function addFlash(themeChoice){
+  const themeName = themeChoice === 'random' ? pick(Object.keys(THEMES)) : themeChoice;
+  const pool = THEMES[themeName];
+  const header = document.createElement('div');
+  header.className = 'card';
+  header.innerHTML = `<h3 class="title">${themeName.toUpperCase()} — Flash Sheet (5)</h3><p class="meta">by @bobbykarate</p>`;
+  board.prepend(header);
+
+  for(let i=1;i<=5;i++){
+    const subject = pick(pool.subjects);
+    const [e1,e2] = twoDistinct([...pool.extras, ...EXTRAS_CORE]);
+    const placement = pick(PLACEMENTS);
+    const size = pick(SIZES);
+    const text = `${i}. ${subject} ${e1} and ${e2}, ${size}, placed on the ${placement}.`;
+    renderCard({title: subject, text, meta:`Placement: ${placement} • Size: ${size}`}, header);
+  }
+}
+
+function renderCard({title,text,meta}, insertAfter=null){
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = `
+    <h3 class="title">${title}</h3>
+    <p class="prompt">${text}</p>
+    <p class="meta">${meta}</p>
+    <div class="row">
+      <button class="copy">Copy</button>
+      <button class="reroll">↻ Reroll</button>
+    </div>`;
+  const copyBtn = el.querySelector('.copy');
+  const rerollBtn = el.querySelector('.reroll');
+  copyBtn.onclick = async ()=>{ await navigator.clipboard.writeText(text); toast('Copied ✓'); };
+  rerollBtn.onclick = ()=>{
+    // lightweight reroll: new prompt, same format
+    const [e1,e2] = twoDistinct([...EXTRAS_CORE]);
+    const placement = pick(PLACEMENTS);
+    const size = pick(SIZES);
+    const body = `Client wants a ${title} ${e1} and ${e2}, ${size}, placed on the ${placement}.`;
+    el.querySelector('.prompt').textContent = body;
+    el.querySelector('.meta').textContent = `Placement: ${placement} • Size: ${size}`;
+  };
+  if(insertAfter){
+    insertAfter.insertAdjacentElement('afterend', el);
+  } else {
+    board.prepend(el);
+  }
+}
+
+function toast(msg){
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style,{position:'fixed',bottom:'18px',left:'50%',transform:'translateX(-50%)',background:'#fff',border:'2px solid #000',borderRadius:'999px',padding:'8px 12px',boxShadow:'4px 4px 0 #d82c2c',fontWeight:800,zIndex:9999});
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),1100);
+}
+</script>
+</body>
+</html>
